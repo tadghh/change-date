@@ -1,67 +1,91 @@
 #Install locations
 #Registry: Computer\HKEY_CLASSES_ROOT\*\shell\SetLastWriteTime
 #Files: C:\Users\%USERNAME%\Documents\Powershell Scripts\ChangeDate
-$script:rootFolder = Join-Path $env:USERPROFILE 'Documents\Powershell Scripts'
+$rootFolder = Join-Path $env:USERPROFILE 'Documents\Powershell Scripts'
 
 #The folder for this script to install into
-$script:changeDateInstallFolder = Join-Path $rootFolder 'ChangeDate'
+$changeDateInstallFolder = Join-Path $rootFolder 'ChangeDate'
 
 #The locations for the script files to be installed
-$script:changeDateWrapper = Join-Path $changeDateInstallFolder 'ChangeDateWrapper.vbs'
-$script:changeDateScriptInstallLocation = Join-Path $changeDateInstallFolder 'ChangeDate.ps1'
+$changeDateWrapper = Join-Path $changeDateInstallFolder 'ChangeDateWrapper.vbs'
+$changeDateScriptInstallLocation = Join-Path $changeDateInstallFolder 'ChangeDate.ps1'
 
 #Files local to the installer
-$script:changeDateScriptResourceLocation = ".\ChangeDate.ps1"
+$changeDateScriptResourceLocation = Join-Path (Get-Location) 'ChangeDate.ps1'
 
-#Other
-$script:scriptRegistryKeyName = "FixLastWriteTime"
-$script:changeWriteTimeRegKey = "HKCU:\Software\Classes\*\shell\${scriptRegistryKeyName}"
-$script:changeWriteCommandKey = "HKCU:\Software\Classes\*\shell\${scriptRegistryKeyName}\command"
-$script:powershellChangeDateLocation = $changeDateScriptInstallLocation
+#The value for the context menu entry
+$registryValue = 'wscript.exe "{0}" "%1"' -f $changeDateWrapper
 
-#Wrapper content, used to prevent a PowerShell window from appearing
-$wrapperScriptContent = @"
-Set objShell = WScript.CreateObject("WScript.Shell")
-objShell.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ""${powershellChangeDateLocation}"" -FilePath """ & WScript.Arguments(0) & """", 0, True
-"@
+$scriptRegistryKeyName = 'FixLastWriteDate'
+$registryPath = 'Registry::HKCR\*\shell\'
+$changeWriteTimeRegKey = Join-Path $registryPath $scriptRegistryKeyName
+$changeWriteCommandKey = Join-Path $changeWriteTimeRegKey 'command'
 
+$RegKeys = @(
+    @{
+        Path = $changeWriteTimeRegKey
+        Value = "Fix Date"
+    }
+    @{
+        Path = $changeWriteCommandKey
+        Value = $registryValue
+    }
+)
+
+$enviromentFolders = @(
+    @{
+        Path = $rootFolder
+    }
+    @{
+        Path = $changeDateInstallFolder
+    }
+)
 
 if (Test-Path -Path $changeDateScriptResourceLocation -PathType Leaf) {
 
     function Copy-ScriptResources {
-        $statement = "Copied file: "
+        $statement = 'Copied file: '
+
+        #Wrapper content, used to prevent a PowerShell window from appearing
+        $wrapperScriptContent = 'Set objShell = WScript.CreateObject("WScript.Shell")
+        objShell.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ""{0}"" -FilePath """ & WScript.Arguments(0) & """", 0, True' -f $changeDateScriptInstallLocation
+
         try {
             if (Test-Path -Path $changeDateInstallFolder -PathType Container) {
+
                 #Write content to vbs file, in the install folder
                 $wrapperScriptContent | Out-File -FilePath $changeDateWrapper -Force
                 Write-Host "Made wrapper file: $changeDateWrapper"
 
                 if (-not (Test-Path -Path $changeDateScriptInstallLocation -PathType Leaf)) {
-                    Copy-Item -Path $changeDateScriptResourceLocation -Destination $changeDateScriptInstallLocation -Force
 
-                    Write-Host -Object "$statement $changeDateScriptResourceLocation" -ForegroundColor Green
+                    Copy-Item -Path $changeDateScriptResourceLocation -Destination $changeDateScriptInstallLocation -Force
+                    Write-Host -Object "$statement $changeDateScriptResourceLocation"
                 }
             }
         }
         catch {
-            Write-Host "Error copying scripts: $_"
+            Write-Host "Error copying/creating scripts: $_"
         }
-
     }
 
     function Initialize-ScriptEnviroment {
-        $statement = "Created folder: "
+        $statement = 'Created folder: '
 
         try {
-            if (-not (Test-Path -Path $rootFolder -PathType Container)) {
-                New-Item -ItemType Directory -Path $rootFolder -Force | Out-Null
-                Write-Host -Object "$statement $rootFolder"
+            foreach ($Item in $enviromentFolders) {
+                New-Item -ItemType Directory -Path $Item['Path'] -Force | Out-Null
+                Write-Host -Object "$statement $($Item['Path'])"
             }
+            # if (-not (Test-Path -Path $Item['Path'] -PathType Container)) {
+            #     New-Item -ItemType Directory -Path $Item['Path'] -Force | Out-Null
+            #     Write-Host -Object "$statement $($Item['Path'])"
+            # }
 
-            if (-not (Test-Path -Path $changeDateInstallFolder -PathType Container)) {
-                New-Item -ItemType Directory -Path $changeDateInstallFolder -Force | Out-Null
-                Write-Host -Object  "$statement $changeDateInstallFolder"
-            }
+            # if (-not (Test-Path -Path $changeDateInstallFolder -PathType Container)) {
+            #     New-Item -ItemType Directory -Path $changeDateInstallFolder -Force | Out-Null
+            #     Write-Host -Object  "$statement $changeDateInstallFolder"
+            # }
         }
         catch {
             Write-Host "Error creating script enviroment: $_"
@@ -69,18 +93,12 @@ if (Test-Path -Path $changeDateScriptResourceLocation -PathType Leaf) {
     }
 
     function Initialize-RegistryKeys {
-        $statement = "Created registry key: "
+        $statement = 'Created registry key: '
 
         try {
-            if (-not (Test-Path -Path $changeWriteTimeRegKey -PathType Container)) {
-
-                New-Item -Path $changeWriteTimeRegKey -Force | Out-Null
-                Write-Host "$statement$changeWriteTimeRegKey"
-            }
-            if (-not (Test-Path -Path $changeWriteCommandKey -PathType Container)) {
-
-                New-Item -Path $changeWriteCommandKey -Force | Out-Null
-                Write-Host "$statement$changeWriteCommandKey"
+            foreach ($Item in $RegKeys) {
+                New-Item -Path $Item['Path'] -Value $Item['Value'] -Force | Out-Null
+                Write-Host "Created registry key: $($Item['Path']) with value: $($Item['Value'])"
             }
         }
         catch {
@@ -96,21 +114,14 @@ if (Test-Path -Path $changeDateScriptResourceLocation -PathType Leaf) {
         #Setup the registry entries
         Initialize-RegistryKeys
 
-        #Set the title for the context menu entry
-        New-ItemProperty -Path $changeWriteTimeRegKey -Name '(default)' -Value "Fix date" -PropertyType String
-
-        #Set the command for the context menu entry
-        $registryValue = 'wscript.exe "{0}" "%1"' -f $changeDateWrapper
-        New-ItemProperty -Path $changeWriteCommandKey -Name '(default)' -Value $registryValue -PropertyType String
-
-        Write-Host "Registry entry created successfully."
+        Write-Host 'Install completed.'
     }
     catch {
         Write-Host "Error creating registry entry: $_"
     }
 }
 else {
-    Write-Host "Installer files were missing."
+    Write-Host 'Installer files were missing.'
 }
 
 
