@@ -23,11 +23,16 @@ param(
 
 # Get the clicked file, replace ' with "
 $file = Get-Item ($filePath -replace "'", "")
-$file.LastWriteTime = Get-Date
 
-# Add a random time between 12:00 PM and 5, also making sure its not in the future
-$maxRandomHour = [math]::Min(17, (Get-Date).Hour)
+# Get todays date.
+$currentDateTime = Get-Date
 
-$randomTime = Get-Random -Minimum 12 -Maximum $maxRandomHour
+# Evaluate a random time between 12:00 PM and 5:00 PM or before the current hour.
+$randomTime = Get-Random -Minimum 12 -Maximum ([math]::Min(17, $currentDateTime.Hour))
 
-$file.LastWriteTime = $file.LastWriteTime.Date.AddHours($randomTime).AddMinutes((Get-Random -Minimum 0 -Maximum 57)).AddSeconds((Get-Random -Minimum 0 -Maximum 59))
+# Evaluate random minutes and seconds.
+$randomMinutes = Get-Random -Minimum 0 -Maximum 57
+$randomSeconds = Get-Random -Minimum 0 -Maximum 59
+
+# Set the calculated LastWriteTime.
+$file.LastWriteTime = $currentDateTime.Date.AddHours($randomTime).AddMinutes($randomMinutes).AddSeconds($randomSeconds)
