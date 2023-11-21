@@ -4,6 +4,9 @@ Adds a context menu entry to change the time on a file to be something more sens
 # TODO
 
 - Install instructions
-- Fix performance
+- ~~Fix performance~~ 
 - Test in different enviroment
-- Clean up installer
+- ~~Clean up installer~~
+- Add more documentation
+- Add admin prompt request
+- Gui for specifying the date
