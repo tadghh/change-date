@@ -1,37 +1,40 @@
 #Install locations
-#Registry: Computer\HKEY_CLASSES_ROOT\*\shell\SetLastWriteTime
 #Files: C:\Users\%USERNAME%\Documents\Powershell Scripts\ChangeDate
+#The parent folder containing this and maybe other scripts.
 $rootFolder = Join-Path $env:USERPROFILE 'Documents\Powershell Scripts'
 
-#The folder for this script to install into
+#The folder for this script to install into.
 $changeDateInstallFolder = Join-Path $rootFolder 'ChangeDate'
 
-#The locations for the script files to be installed
-$changeDateWrapper = Join-Path $changeDateInstallFolder 'ChangeDateWrapper.vbs'
+#The locations for the script files to be installed.
+$changeDateWrapperInstallLocation = Join-Path $changeDateInstallFolder 'ChangeDateWrapper.vbs'
 $changeDateScriptInstallLocation = Join-Path $changeDateInstallFolder 'ChangeDate.ps1'
 
-#Files local to the installer
+#The script file local to the installer.
 $changeDateScriptResourceLocation = Join-Path (Get-Location) 'ChangeDate.ps1'
 
-#The value for the context menu entry
-$registryValue = 'wscript.exe "{0}" "%1"' -f $changeDateWrapper
+#The value for the context menu entry, what will be executed upon click.
+$contextMenuRegistryCommand = 'wscript.exe "{0}" "%1"' -f $changeDateWrapperInstallLocation
 
+#Registry: Computer\HKEY_CLASSES_ROOT\*\shell\FixLastWriteDate
 $scriptRegistryKeyName = 'FixLastWriteDate'
-$registryPath = 'Registry::HKCR\*\shell\'
-$changeWriteTimeRegKey = Join-Path $registryPath $scriptRegistryKeyName
-$changeWriteCommandKey = Join-Path $changeWriteTimeRegKey 'command'
+$registryParentPath = 'Registry::HKCR\*\shell\'
+$changeWriteTimeRegKey = Join-Path $registryParentPath $scriptRegistryKeyName
+$changeWriteScriptCommandKey = Join-Path $changeWriteTimeRegKey 'command'
 
+#The registry keys to be created.
 $RegKeys = @(
     @{
-        Path = $changeWriteTimeRegKey
+        Path  = $changeWriteTimeRegKey
         Value = "Fix Date"
     }
     @{
-        Path = $changeWriteCommandKey
-        Value = $registryValue
+        Path  = $changeWriteScriptCommandKey
+        Value = $contextMenuRegistryCommand
     }
 )
 
+#The folders to be created, used a hash map to challenge myself.
 $enviromentFolders = @(
     @{
         Path = $rootFolder
@@ -43,24 +46,32 @@ $enviromentFolders = @(
 
 if (Test-Path -Path $changeDateScriptResourceLocation -PathType Leaf) {
 
+    <#
+    .SYNOPSIS
+        Copies the PowerShell script to the user's documents and creates a wrapper file.
+    .DESCRIPTION
+        Copies the script and creates an additional wrapper (ChangeDateWrapper.vbs) to prevent the PowerShell window from popping up.
+    .NOTES
+        All files will be overwritten if this is rerun; the install directories are required.
+    #>
     function Copy-ScriptResources {
         $statement = 'Copied file: '
 
-        #Wrapper content, used to prevent a PowerShell window from appearing
+        #Wrapper content, used to prevent a PowerShell window from appearing.
         $wrapperScriptContent = 'Set objShell = WScript.CreateObject("WScript.Shell")
         objShell.Run "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ""{0}"" -FilePath """ & WScript.Arguments(0) & """", 0, True' -f $changeDateScriptInstallLocation
 
         try {
             if (Test-Path -Path $changeDateInstallFolder -PathType Container) {
 
-                #Write content to vbs file, in the install folder
-                $wrapperScriptContent | Out-File -FilePath $changeDateWrapper -Force
-                Write-Host "Made wrapper file: $changeDateWrapper"
+                #Write content to vbs file, in the install folder.
+                $wrapperScriptContent | Out-File -FilePath $changeDateWrapperInstallLocation -Force
+                Write-Host "Made wrapper file: $changeDateWrapperInstallLocation `n"
 
                 if (-not (Test-Path -Path $changeDateScriptInstallLocation -PathType Leaf)) {
 
                     Copy-Item -Path $changeDateScriptResourceLocation -Destination $changeDateScriptInstallLocation -Force
-                    Write-Host -Object "$statement $changeDateScriptResourceLocation"
+                    Write-Host "$statement $changeDateScriptResourceLocation `n"
                 }
             }
         }
@@ -69,36 +80,43 @@ if (Test-Path -Path $changeDateScriptResourceLocation -PathType Leaf) {
         }
     }
 
+    <#
+    .SYNOPSIS
+        Creates the folders required to install the script.
+    .DESCRIPTION
+        Creates folders to provide some organization for customer PowerShell scripts.
+    .NOTES
+        The selected installation directory is in the user's documents, this helps with transparency and hopefully encourages learning.
+    #>
     function Initialize-ScriptEnviroment {
         $statement = 'Created folder: '
 
         try {
             foreach ($Item in $enviromentFolders) {
                 New-Item -ItemType Directory -Path $Item['Path'] -Force | Out-Null
-                Write-Host -Object "$statement $($Item['Path'])"
+                Write-Host "$statement $($Item['Path']) `n"
             }
-            # if (-not (Test-Path -Path $Item['Path'] -PathType Container)) {
-            #     New-Item -ItemType Directory -Path $Item['Path'] -Force | Out-Null
-            #     Write-Host -Object "$statement $($Item['Path'])"
-            # }
-
-            # if (-not (Test-Path -Path $changeDateInstallFolder -PathType Container)) {
-            #     New-Item -ItemType Directory -Path $changeDateInstallFolder -Force | Out-Null
-            #     Write-Host -Object  "$statement $changeDateInstallFolder"
-            # }
         }
         catch {
             Write-Host "Error creating script enviroment: $_"
         }
     }
 
+    <#
+    .SYNOPSIS
+        Adds the required keys to the registry.
+    .DESCRIPTION
+        Creates the keys and values in the registry for the context menu name and the command to execute.
+    .NOTES
+        This will only be installed for the administrative user.
+    #>
     function Initialize-RegistryKeys {
         $statement = 'Created registry key: '
 
         try {
             foreach ($Item in $RegKeys) {
                 New-Item -Path $Item['Path'] -Value $Item['Value'] -Force | Out-Null
-                Write-Host "Created registry key: $($Item['Path']) with value: $($Item['Value'])"
+                Write-Host "$statement$($Item['Path']) with value: $($Item['Value']) `n"
             }
         }
         catch {
@@ -107,11 +125,11 @@ if (Test-Path -Path $changeDateScriptResourceLocation -PathType Leaf) {
     }
 
     try {
-        #Setup folders and copy/create resources
+        #Setup folders and copy/create resources.
         Initialize-ScriptEnviroment
         Copy-ScriptResources
 
-        #Setup the registry entries
+        #Setup the registry entries.
         Initialize-RegistryKeys
 
         Write-Host 'Install completed.'
@@ -123,7 +141,3 @@ if (Test-Path -Path $changeDateScriptResourceLocation -PathType Leaf) {
 else {
     Write-Host 'Installer files were missing.'
 }
-
-
-
-
