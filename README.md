@@ -20,10 +20,10 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope CurrentUser;
 
 # TODO
 
-- Install instructions
+- ~~Install instructions~~
 - ~~Fix performance~~
 - ~~Test in different environment~~
 - ~~Clean up installer~~
 - ~~Add more documentation~~
-- Add admin prompt request
+- ~~Add admin prompt request~~
 - GUI for specifying the date
