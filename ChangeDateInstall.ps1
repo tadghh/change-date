@@ -1,3 +1,35 @@
+
+
+# Check if we are running with admin.
+$userPermissions = ([Security.Principal.WindowsPrincipal] `
+        [Security.Principal.WindowsIdentity]::GetCurrent() `
+).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-not $userPermissions) {
+    # Start a new PowerShell process with the -Verb RunAs flag to request elevation
+    do {
+        # Start a new PowerShell process with the -Verb RunAs flag to request elevation
+        Write-Host "The script is not currently running with administrator privileges. Would you like to spawn an admin shell? (Y/n)"
+        $userInput = Read-Host "Enter"
+
+        if ($userInput -eq 'y') {
+            $curr = Get-Location
+            $command = "-NoExit -ExecutionPolicy Bypass -Command cd '$curr'; .\ChangeDateInstall.ps1"
+
+            Write-Host $command
+            Start-Process powershell -ArgumentList $command -Verb RunAs
+            Exit
+        }
+        elseif ($userInput -eq 'n') {
+            Write-Host "Closing..."
+            Exit
+        }
+        else {
+            Write-Host "Invalid input. Please enter 'y' or 'n'."
+        }
+    } while ($true)
+}
+
 # Install locations
 # Files: C:\Users\%USERNAME%\Documents\Powershell Scripts\ChangeDate
 # The parent folder containing this and maybe other scripts.
