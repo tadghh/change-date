@@ -10,8 +10,7 @@ For Windows 10 1809 or greater
 cd $env:USERPROFILE/Downloads;
 mkdir ./temp;
 cd ./temp;
-curl -L -O https://github.com/tadghh/change-date/archive/main.zip;
-Expand-Archive -Path .\main.zip -DestinationPath .\;
+curl -L -O https://github.com/tadghh/change-date/archive/main.zip | Expand-Archive -DestinationPath .\ -Force;
 cd .\change-date-main\;
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope CurrentUser;
 .\ChangeDateInstall.ps1;
