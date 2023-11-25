@@ -1,10 +1,11 @@
 
-
+#Parent registry path.
 $registryParentPath = 'Registry::HKCR\*\shell\'
 
 try {
+    # Need to do further testing
     # Get the ACL for the registry key.
-    $registryParentPath = 'Registry::HKCR\*\shell\'
+    #   $registryParentPath = 'Registry::HKCR\*\shell\'
     $keyAcl = Get-Acl -LiteralPath $registryParentPath -ErrorAction Stop
 
     # Get username.
