@@ -1,16 +1,44 @@
 
 
-# Check if we are running with admin.
-$userPermissions = ([Security.Principal.WindowsPrincipal] `
-        [Security.Principal.WindowsIdentity]::GetCurrent() `
-).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$registryParentPath = 'Registry::HKCR\*\shell\'
+
+try {
+    # Get the ACL for the registry key.
+    $keyAcl = Get-Acl -LiteralPath $registryParentPath -ErrorAction Stop
+
+    # Get username.
+    $currentUserName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+
+    $userRegistryPermissions = $keyAcl.Access | Where-Object {
+        $_.IdentityReference.Value -eq $currentUserName
+        -and ($_.RegistryRights -eq 'FullControl')
+    }
+
+    # Check if powershell is running as admin.
+    $userPermissions = ([Security.Principal.WindowsPrincipal] `
+            [Security.Principal.WindowsIdentity]::GetCurrent() `
+    ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+catch {
+    if (-not $userRegistryPermissions) {
+        Write-Host "The current user does not have read/write permissions on $registryParentPath."
+        Write-Host "Enter 'i' to ignore this warning or any other key to exit."
+        $userInput = Read-Host "Input: "
+
+        if (-not ($userInput -eq 'i')) {
+            Write-Host "Closing..."
+            Exit
+        }
+    }
+}
+
 
 if (-not $userPermissions) {
-    # Start a new PowerShell process with the -Verb RunAs flag to request elevation
+    # Start a new PowerShell process with the -Verb RunAs flag to request elevation.
     do {
-        # Start a new PowerShell process with the -Verb RunAs flag to request elevation
+        # Start a new PowerShell process with the -Verb RunAs flag to request elevation.
         Write-Host "The script is not currently running with administrator privileges. Would you like to spawn an admin shell? (Y/n)"
-        $userInput = Read-Host "Enter"
+        $userInput = Read-Host "Input: "
 
         if ($userInput -eq 'y') {
             $curr = Get-Location
@@ -50,7 +78,6 @@ $contextMenuRegistryCommand = 'wscript.exe "{0}" "%1"' -f $changeDateWrapperInst
 
 # Registry: Computer\HKEY_CLASSES_ROOT\*\shell\FixLastWriteDate
 $scriptRegistryKeyName = 'FixLastWriteDate'
-$registryParentPath = 'Registry::HKCR\*\shell\'
 $changeWriteTimeRegKey = Join-Path $registryParentPath $scriptRegistryKeyName
 $changeWriteScriptCommandKey = Join-Path $changeWriteTimeRegKey 'command'
 
@@ -171,5 +198,5 @@ if (Test-Path -Path $changeDateScriptResourceLocation -PathType Leaf) {
     }
 }
 else {
-    Write-Host 'Installer files were missing.'
+    Write-Host 'Installer files missing.'
 }
