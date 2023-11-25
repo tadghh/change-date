@@ -4,20 +4,20 @@ $registryParentPath = 'Registry::HKCR\*\shell\'
 
 try {
     # Get the ACL for the registry key.
+    $registryParentPath = 'Registry::HKCR\*\shell\'
     $keyAcl = Get-Acl -LiteralPath $registryParentPath -ErrorAction Stop
 
     # Get username.
     $currentUserName = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
 
     $userRegistryPermissions = $keyAcl.Access | Where-Object {
-        $_.IdentityReference.Value -eq $currentUserName
-        -and ($_.RegistryRights -eq 'FullControl')
+        $_.IdentityReference.Value -eq $currentUserName -and (
+            $_.RegistryRights -eq 'FullControl' -or
+            ($_.RegistryRights -eq 'ReadKey' -and $_.RegistryRights -eq 'WriteKey')
+        )
     }
 
-    # Check if powershell is running as admin.
-    $userPermissions = ([Security.Principal.WindowsPrincipal] `
-            [Security.Principal.WindowsIdentity]::GetCurrent() `
-    ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
 }
 catch {
     if (-not $userRegistryPermissions) {
@@ -31,7 +31,10 @@ catch {
         }
     }
 }
-
+# Check if powershell is running as admin.
+$userPermissions = ([Security.Principal.WindowsPrincipal] `
+        [Security.Principal.WindowsIdentity]::GetCurrent() `
+).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
 if (-not $userPermissions) {
     # Start a new PowerShell process with the -Verb RunAs flag to request elevation.
